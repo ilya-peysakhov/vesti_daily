@@ -125,83 +125,117 @@ def scrape_forum_data(num_pages):
     analyzer = IGNForumAnalyzer()
     return analyzer.scrape_pages(num_pages)
 
-def filter_by_date_range(df, days_back=2):
-    """Filter dataframe to include only threads from the last N full calendar days"""
+def filter_by_date(df, filter_date):
+    """Filter dataframe to include only threads from the specified date onwards"""
     if df.empty:
         return df
-    
-    # Get current date in UTC
-    today = datetime.now(pytz.UTC).date()
-    
-    # Calculate the start date (N days back)
-    start_date = today - timedelta(days=days_back)
     
     # Convert timestamps to dates for comparison
     df['date'] = df['timestamp'].dt.date
     
-    # Filter for the last N calendar days
-    filtered_df = df[df['date'] >= start_date].copy()
+    # Filter for threads on or after the specified date
+    filtered_df = df[df['date'] >= filter_date].copy()
     
     return filtered_df
 
-def create_visualizations(df):
-    """Create all visualizations"""
-    if df.empty:
-        st.warning("No data to visualize")
+def create_visualizations(filtered_df, raw_df):
+    """Create all visualizations using filtered data"""
+    # Raw data summary at the top
+    st.header("📊 Raw Data Summary")
+    if not raw_df.empty:
+        raw_min_date = raw_df['timestamp'].min().strftime('%Y-%m-%d %H:%M')
+        raw_max_date = raw_df['timestamp'].max().strftime('%Y-%m-%d %H:%M')
+        st.caption(f"Scraped {len(raw_df)} total threads from {raw_min_date} to {raw_max_date}")
+    else:
+        st.caption("No raw data available")
+    
+    st.divider()
+    
+    # Check if filtered data exists
+    if filtered_df.empty:
+        st.warning("No threads found for the selected date filter")
         return
+    
+    st.header("📈 Filtered Data Analysis")
     
     col1, col2 = st.columns(2)
     
     with col1:
         st.subheader("📊 Dataset Overview")
-        st.metric("Total Threads", len(df))
-        st.metric("Unique Authors", df['author'].nunique())
-        st.metric("Total Replies", int(df['replies'].sum()))
-        st.metric("Total Views", int(df['views'].sum()))
+        st.metric("Total Threads", len(filtered_df))
+        st.metric("Unique Authors", filtered_df['author'].nunique())
+        st.metric("Total Replies", int(filtered_df['replies'].sum()))
+        st.metric("Total Views", int(filtered_df['views'].sum()))
     
     with col2:
-        st.subheader("📅 Date Range")
-        if not df.empty:
-            min_date = df['timestamp'].min().strftime('%Y-%m-%d')
-            max_date = df['timestamp'].max().strftime('%Y-%m-%d')
+        st.subheader("📅 Filtered Date Range")
+        if not filtered_df.empty:
+            min_date = filtered_df['timestamp'].min().strftime('%Y-%m-%d %H:%M')
+            max_date = filtered_df['timestamp'].max().strftime('%Y-%m-%d %H:%M')
             st.write(f"From: {min_date}")
             st.write(f"To: {max_date}")
     
+    # Threads by hour visualization
+    st.subheader("🕐 Threads Created by Hour")
+    filtered_df['hour'] = filtered_df['timestamp'].dt.hour
+    hourly_counts = filtered_df.groupby('hour').size().reset_index()
+    hourly_counts.columns = ['hour', 'thread_count']
+    
+    # Ensure all 24 hours are represented
+    all_hours = pd.DataFrame({'hour': range(24)})
+    hourly_counts = all_hours.merge(hourly_counts, on='hour', how='left').fillna(0)
+    
+    fig_hourly = px.bar(
+        hourly_counts,
+        x='hour',
+        y='thread_count',
+        title="Number of Threads Created by Hour of Day",
+        labels={'hour': 'Hour of Day (UTC)', 'thread_count': 'Number of Threads'}
+    )
+    fig_hourly.update_xaxes(tickmode='linear', tick0=0, dtick=1)
+    st.plotly_chart(fig_hourly, use_container_width=True)
+    
     # Top threads by replies table
     st.subheader("🔥 Top Threads by Replies")
-    top_threads = df.nlargest(20, 'replies')[['title', 'author', 'replies', 'views', 'timestamp']]
+    top_threads = filtered_df.nlargest(20, 'replies')[['title', 'author', 'replies', 'views', 'timestamp']]
     top_threads['timestamp'] = top_threads['timestamp'].dt.strftime('%Y-%m-%d %H:%M')
     st.dataframe(top_threads, use_container_width=True)
     
     # Authors with most total replies on their threads
     st.subheader("👑 Authors by Total Replies on Their Threads")
-    author_replies = df.groupby('author')['replies'].sum().reset_index()
+    author_replies = filtered_df.groupby('author')['replies'].sum().reset_index()
     author_replies = author_replies.sort_values('replies', ascending=False).head(15)
     
-    fig_replies = px.bar(
-        author_replies, 
-        x='author', 
-        y='replies',
-        title="Authors with Most Total Replies on Their Threads",
-        labels={'author': 'Author', 'replies': 'Total Replies'}
-    )
-    fig_replies.update_xaxes(tickangle=45)
-    st.plotly_chart(fig_replies, use_container_width=True)
+    if not author_replies.empty and author_replies['replies'].sum() > 0:
+        fig_replies = px.bar(
+            author_replies, 
+            x='author', 
+            y='replies',
+            title="Authors with Most Total Replies on Their Threads",
+            labels={'author': 'Author', 'replies': 'Total Replies'}
+        )
+        fig_replies.update_xaxes(tickangle=45)
+        st.plotly_chart(fig_replies, use_container_width=True)
+    else:
+        st.info("No reply data available for the filtered date range")
     
     # Authors with most total views on their threads
     st.subheader("👀 Authors by Total Views on Their Threads")
-    author_views = df.groupby('author')['views'].sum().reset_index()
+    author_views = filtered_df.groupby('author')['views'].sum().reset_index()
     author_views = author_views.sort_values('views', ascending=False).head(15)
     
-    fig_views = px.bar(
-        author_views, 
-        x='author', 
-        y='views',
-        title="Authors with Most Total Views on Their Threads",
-        labels={'author': 'Author', 'views': 'Total Views'}
-    )
-    fig_views.update_xaxes(tickangle=45)
-    st.plotly_chart(fig_views, use_container_width=True)
+    if not author_views.empty and author_views['views'].sum() > 0:
+        fig_views = px.bar(
+            author_views, 
+            x='author', 
+            y='views',
+            title="Authors with Most Total Views on Their Threads",
+            labels={'author': 'Author', 'views': 'Total Views'}
+        )
+        fig_views.update_xaxes(tickangle=45)
+        st.plotly_chart(fig_views, use_container_width=True)
+    else:
+        st.info("No view data available for the filtered date range")
 
 def main():
     st.title("🎮 IGN Forum Analyzer")
@@ -219,13 +253,11 @@ def main():
         help="Number of forum pages to scrape (more pages = longer scraping time)"
     )
     
-    # Days back filter
-    days_back = st.sidebar.number_input(
-        "Filter to last N calendar days", 
-        min_value=1, 
-        max_value=30, 
-        value=2,
-        help="Show only threads created in the last N full calendar days"
+    # Date filter
+    filter_date = st.sidebar.date_input(
+        "Show threads created on or after:", 
+        value=datetime.now().date() - timedelta(days=2),
+        help="Filter threads to show only those created on or after this date"
     )
     
     # Scrape button
@@ -239,27 +271,27 @@ def main():
         if not raw_df.empty:
             st.success(f"Successfully scraped {len(raw_df)} threads!")
             
-            # Filter by date range
-            filtered_df = filter_by_date_range(raw_df, days_back)
+            # Filter by date
+            filtered_df = filter_by_date(raw_df, filter_date)
             
             if not filtered_df.empty:
-                st.success(f"Found {len(filtered_df)} threads in the last {days_back} calendar days")
+                st.success(f"Found {len(filtered_df)} threads on or after {filter_date}")
                 
                 # Store in session state
-                st.session_state.df = filtered_df
+                st.session_state.filtered_df = filtered_df
                 st.session_state.raw_df = raw_df
                 
             else:
-                st.warning(f"No threads found in the last {days_back} calendar days. Showing all scraped data instead.")
-                st.session_state.df = raw_df
+                st.warning(f"No threads found on or after {filter_date}. Showing all scraped data instead.")
+                st.session_state.filtered_df = raw_df
                 st.session_state.raw_df = raw_df
         else:
             st.error("No data was scraped. Please try again.")
     
     # Display results if data exists
-    if 'df' in st.session_state and not st.session_state.df.empty:
-        st.header("📈 Analysis Results")
-        create_visualizations(st.session_state.df)
+    if 'filtered_df' in st.session_state and not st.session_state.raw_df.empty:
+        # Show raw data summary first
+        create_visualizations(st.session_state.filtered_df, st.session_state.raw_df)
         
         # Download option
         st.subheader("💾 Download Data")
@@ -267,9 +299,9 @@ def main():
         
         with col1:
             if st.button("Download Filtered Data as CSV"):
-                csv = st.session_state.df.to_csv(index=False)
+                csv = st.session_state.filtered_df.to_csv(index=False)
                 st.download_button(
-                    label="📥 Download CSV",
+                    label="📥 Download Filtered CSV",
                     data=csv,
                     file_name=f"ign_forum_filtered_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
                     mime="text/csv"
@@ -286,18 +318,18 @@ def main():
                 )
     
     # Instructions
-    if 'df' not in st.session_state:
+    if 'filtered_df' not in st.session_state:
         st.info("👈 Use the sidebar to configure settings and start scraping!")
         
         st.subheader("ℹ️ How it works:")
         st.write("""
         1. **Set the number of pages** to scrape (default: 5)
-        2. **Set the date filter** to show threads from the last N calendar days (default: 2)
+        2. **Set the date filter** to show threads created on or after a specific date
         3. **Click 'Start Scraping'** to begin collecting data
         4. **View the results** including top threads, author statistics, and visualizations
         5. **Download the data** as CSV if needed
         
-        The app will scrape the most recent pages from IGN's The Vestibule forum and filter the results to show only threads created within your specified date range.
+        The app will scrape the most recent pages from IGN's The Vestibule forum and filter the results to show only threads created on or after your specified date.
         """)
 
 if __name__ == "__main__":
