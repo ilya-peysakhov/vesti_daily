@@ -126,15 +126,15 @@ def scrape_forum_data(num_pages):
     return analyzer.scrape_pages(num_pages)
 
 def filter_by_date(df, filter_date):
-    """Filter dataframe to include only threads from the specified date onwards"""
+    """Filter dataframe to include only threads from the specified date"""
     if df.empty:
         return df
     
     # Convert timestamps to dates for comparison
     df['date'] = df['timestamp'].dt.date
     
-    # Filter for threads on or after the specified date
-    filtered_df = df[df['date'] >= filter_date].copy()
+    # Filter for threads on the specific date only
+    filtered_df = df[df['date'] == filter_date].copy()
     
     return filtered_df
 
@@ -255,9 +255,9 @@ def main():
     
     # Date filter
     filter_date = st.sidebar.date_input(
-        "Show threads created on or after:", 
-        value=datetime.now().date() - timedelta(days=2),
-        help="Filter threads to show only those created on or after this date"
+        "Show threads created on:", 
+        value=datetime.now().date() - timedelta(days=1),
+        help="Filter threads to show only those created on this specific date"
     )
     
     # Scrape button
