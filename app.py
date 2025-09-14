@@ -125,16 +125,16 @@ def scrape_forum_data(num_pages):
     analyzer = IGNForumAnalyzer()
     return analyzer.scrape_pages(num_pages)
 
-def filter_by_date(df, filter_date):
-    """Filter dataframe to include only threads from the specified date"""
+def filter_by_date_range(df, start_date, end_date):
+    """Filter dataframe to include only threads from the specified date range"""
     if df.empty:
         return df
     
     # Convert timestamps to dates for comparison
     df['date'] = df['timestamp'].dt.date
     
-    # Filter for threads on the specific date only
-    filtered_df = df[df['date'] == filter_date].copy()
+    # Filter for threads within the date range (inclusive)
+    filtered_df = df[(df['date'] >= start_date) & (df['date'] <= end_date)].copy()
     
     return filtered_df
 
@@ -253,12 +253,23 @@ def main():
         help="Number of forum pages to scrape (more pages = longer scraping time)"
     )
     
-    # Date filter
-    filter_date = st.sidebar.date_input(
-        "Show threads created on:", 
-        value=datetime.now().date() - timedelta(days=1),
-        help="Filter threads to show only those created on this specific date"
+    end_date_default = datetime.now().date()
+    start_date_default = end_date_default - timedelta(days=7)
+    
+    # Single date range input widget
+    date_range = st.sidebar.date_input(
+        "Show threads created between:",
+        value=(start_date_default, end_date_default),
+        help="Filter threads to show only those created within this date range"
     )
+    
+    # Extract start and end dates from the range
+    if len(date_range) == 2:
+        start_date, end_date = date_range
+    else:
+        # Handle case where user has only selected one date
+        start_date = date_range[0] if date_range else start_date_default
+        end_date = start_date
     
     # Scrape button
     if st.sidebar.button("🚀 Start Scraping", type="primary"):
@@ -272,17 +283,17 @@ def main():
             st.success(f"Successfully scraped {len(raw_df)} threads!")
             
             # Filter by date
-            filtered_df = filter_by_date(raw_df, filter_date)
+            filtered_df = filter_by_date(raw_df, start_date,end_date)
             
             if not filtered_df.empty:
-                st.success(f"Found {len(filtered_df)} threads on or after {filter_date}")
+                st.success(f"Found {len(filtered_df)} threads between {start_date} and {end_date}")
                 
                 # Store in session state
                 st.session_state.filtered_df = filtered_df
                 st.session_state.raw_df = raw_df
                 
             else:
-                st.warning(f"No threads found on or after {filter_date}. Showing all scraped data instead.")
+                st.warning(f"No threads found on or after {end_date}. Showing all scraped data instead.")
                 st.session_state.filtered_df = raw_df
                 st.session_state.raw_df = raw_df
         else:
