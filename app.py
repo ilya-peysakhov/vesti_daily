@@ -254,7 +254,7 @@ def main():
     )
     
     end_date_default = datetime.now().date() - timedelta(days=1)
-    start_date_default = end_date_default - timedelta(days=7)
+    start_date_default = end_date_default - timedelta(days=6)
     
     # Single date range input widget
     date_range = st.sidebar.date_input(
