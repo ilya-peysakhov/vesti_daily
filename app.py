@@ -253,7 +253,7 @@ def main():
         help="Number of forum pages to scrape (more pages = longer scraping time)"
     )
     
-    end_date_default = datetime.now().date() - - timedelta(days=1)
+    end_date_default = datetime.now().date() - timedelta(days=1)
     start_date_default = end_date_default - timedelta(days=7)
     
     # Single date range input widget
