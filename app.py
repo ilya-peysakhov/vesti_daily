@@ -125,7 +125,7 @@ def scrape_forum_data(num_pages):
     analyzer = IGNForumAnalyzer()
     return analyzer.scrape_pages(num_pages)
 
-def filter_by_date_range(df, start_date, end_date):
+def filter_by_date(df, start_date, end_date):
     """Filter dataframe to include only threads from the specified date range"""
     if df.empty:
         return df
