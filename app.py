@@ -270,7 +270,9 @@ def main():
         # Handle case where user has only selected one date
         start_date = date_range[0] if date_range else start_date_default
         end_date = start_date
-    
+    if st.sidebar.button('clear'):
+        st.cache_data.clear()
+        st.cache_resource.clear()
     # Scrape button
     if st.sidebar.button("🚀 Start Scraping", type="primary"):
         st.info(f"Scraping {num_pages} pages from IGN Forum...")
@@ -342,8 +344,6 @@ def main():
         
         The app will scrape the most recent pages from IGN's The Vestibule forum and filter the results to show only threads created on or after your specified date.
         """)
-    if st.button('clear'):
-        st.cache_data.clear()
-        st.cache_resource.clear()
+
 if __name__ == "__main__":
     main()
