@@ -248,7 +248,7 @@ def main():
     num_pages = st.sidebar.number_input(
         "Number of pages to scrape", 
         min_value=1, 
-        max_value=200, 
+        max_value=2000, 
         value=5,
         help="Number of forum pages to scrape (more pages = longer scraping time)"
     )
