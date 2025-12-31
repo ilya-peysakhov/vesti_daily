@@ -342,6 +342,8 @@ def main():
         
         The app will scrape the most recent pages from IGN's The Vestibule forum and filter the results to show only threads created on or after your specified date.
         """)
-
+    if st.button('clear'):
+        st.cache_data.clear()
+        st.cache_resource.clear()
 if __name__ == "__main__":
     main()
