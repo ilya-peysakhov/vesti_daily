@@ -13,6 +13,10 @@ import pytz
 
 st.set_page_config(page_title="IGN Forum Analyzer", layout="wide")
 
+if st.sidebar.button('clear all things'):
+    st.cache_data.clear()
+    st.cache_resource.clear()
+    
 class IGNForumAnalyzer:
     def __init__(self, base_url="https://www.ignboards.com/forums/the-vestibule.5296/"):
         self.base_url = base_url
@@ -270,9 +274,9 @@ def main():
         # Handle case where user has only selected one date
         start_date = date_range[0] if date_range else start_date_default
         end_date = start_date
-    if st.sidebar.button('clear'):
-        st.cache_data.clear()
-        st.cache_resource.clear()
+    
+
+        
     # Scrape button
     if st.sidebar.button("🚀 Start Scraping", type="primary"):
         st.info(f"Scraping {num_pages} pages from IGN Forum...")
