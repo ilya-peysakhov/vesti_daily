@@ -10,6 +10,8 @@ import plotly.graph_objects as go
 import time
 import random
 import pytz
+from PIL import Image, ImageDraw, ImageFont
+import io
 
 st.set_page_config(page_title="IGN Forum 2025 Wrapped", layout="wide", initial_sidebar_state="expanded")
 
@@ -189,6 +191,148 @@ def filter_by_date(df, start_date, end_date):
     filtered_df = df[(df['date'] >= start_date) & (df['date'] <= end_date)].copy()
     
     return filtered_df
+
+def create_infographic(filtered_df, start_date, end_date):
+    """Create a shareable infographic image"""
+    # Create image
+    width, height = 1080, 1920
+    img = Image.new('RGB', (width, height), color='#1a1a2e')
+    draw = ImageDraw.Draw(img)
+    
+    # Try to use a nice font, fall back to default if not available
+    try:
+        title_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 80)
+        header_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 50)
+        stat_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 60)
+        label_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 30)
+        body_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 28)
+    except:
+        title_font = ImageFont.load_default()
+        header_font = ImageFont.load_default()
+        stat_font = ImageFont.load_default()
+        label_font = ImageFont.load_default()
+        body_font = ImageFont.load_default()
+    
+    y_position = 80
+    
+    # Title
+    title = "2025 WRAPPED"
+    title_bbox = draw.textbbox((0, 0), title, font=title_font)
+    title_width = title_bbox[2] - title_bbox[0]
+    draw.text(((width - title_width) / 2, y_position), title, fill='#667eea', font=title_font)
+    y_position += 100
+    
+    # Subtitle
+    subtitle = f"IGN Forum: The Vestibule"
+    subtitle_bbox = draw.textbbox((0, 0), subtitle, font=label_font)
+    subtitle_width = subtitle_bbox[2] - subtitle_bbox[0]
+    draw.text(((width - subtitle_width) / 2, y_position), subtitle, fill='#ffffff', font=label_font)
+    y_position += 50
+    
+    date_range = f"{start_date.strftime('%b %d')} - {end_date.strftime('%b %d, %Y')}"
+    date_bbox = draw.textbbox((0, 0), date_range, font=label_font)
+    date_width = date_bbox[2] - date_bbox[0]
+    draw.text(((width - date_width) / 2, y_position), date_range, fill='#aaaaaa', font=label_font)
+    y_position += 100
+    
+    # Stats section
+    stats = [
+        (f"{len(filtered_df):,}", "Threads Created", "🧵"),
+        (f"{int(filtered_df['replies'].sum()):,}", "Total Replies", "💬"),
+        (f"{int(filtered_df['views'].sum()):,}", "Total Views", "👀"),
+        (f"{filtered_df['author'].nunique():,}", "Active Authors", "👥")
+    ]
+    
+    stat_box_width = 480
+    stat_box_height = 150
+    padding = 30
+    
+    for i, (stat, label, emoji) in enumerate(stats):
+        row = i // 2
+        col = i % 2
+        x = 60 + col * (stat_box_width + padding)
+        y = y_position + row * (stat_box_height + padding)
+        
+        # Draw rounded rectangle
+        draw.rounded_rectangle(
+            [(x, y), (x + stat_box_width, y + stat_box_height)],
+            radius=15,
+            fill='#2d2d44'
+        )
+        
+        # Draw emoji
+        emoji_bbox = draw.textbbox((0, 0), emoji, font=header_font)
+        emoji_width = emoji_bbox[2] - emoji_bbox[0]
+        draw.text((x + (stat_box_width - emoji_width) / 2, y + 15), emoji, font=header_font)
+        
+        # Draw stat
+        stat_bbox = draw.textbbox((0, 0), stat, font=stat_font)
+        stat_width = stat_bbox[2] - stat_bbox[0]
+        draw.text((x + (stat_box_width - stat_width) / 2, y + 60), stat, fill='#ffffff', font=stat_font)
+        
+        # Draw label
+        label_bbox = draw.textbbox((0, 0), label, font=label_font)
+        label_width = label_bbox[2] - label_bbox[0]
+        draw.text((x + (stat_box_width - label_width) / 2, y + 115), label, fill='#aaaaaa', font=label_font)
+    
+    y_position += 2 * (stat_box_height + padding) + 50
+    
+    # Top Thread section
+    section_title = "🔥 Most Viewed Thread"
+    draw.text((60, y_position), section_title, fill='#667eea', font=header_font)
+    y_position += 70
+    
+    top_thread = filtered_df.nlargest(1, 'views').iloc[0]
+    thread_title = top_thread['title'][:50] + "..." if len(top_thread['title']) > 50 else top_thread['title']
+    
+    # Word wrap the title
+    words = thread_title.split()
+    lines = []
+    current_line = []
+    for word in words:
+        test_line = ' '.join(current_line + [word])
+        bbox = draw.textbbox((0, 0), test_line, font=body_font)
+        if bbox[2] - bbox[0] < 900:
+            current_line.append(word)
+        else:
+            lines.append(' '.join(current_line))
+            current_line = [word]
+    if current_line:
+        lines.append(' '.join(current_line))
+    
+    for line in lines[:3]:  # Max 3 lines
+        draw.text((60, y_position), line, fill='#ffffff', font=body_font)
+        y_position += 40
+    
+    draw.text((60, y_position), f"by {top_thread['author']}", fill='#aaaaaa', font=label_font)
+    y_position += 45
+    draw.text((60, y_position), f"{int(top_thread['views']):,} views  •  {int(top_thread['replies']):,} replies", fill='#aaaaaa', font=label_font)
+    y_position += 80
+    
+    # Top Authors section
+    section_title = "👑 Top Contributors"
+    draw.text((60, y_position), section_title, fill='#667eea', font=header_font)
+    y_position += 70
+    
+    # Top 3 authors by threads
+    author_threads = filtered_df.groupby('author').size().reset_index(name='count')
+    top_authors = author_threads.nlargest(3, 'count')
+    
+    for idx, row in top_authors.iterrows():
+        medal = ["🥇", "🥈", "🥉"][list(top_authors.index).index(idx)]
+        text = f"{medal} {row['author']}: {row['count']} threads"
+        draw.text((60, y_position), text, fill='#ffffff', font=body_font)
+        y_position += 45
+    
+    y_position += 40
+    
+    # Footer
+    footer_text = "Thank you for making The Vestibule vibrant! 🎮"
+    footer_bbox = draw.textbbox((0, 0), footer_text, font=label_font)
+    footer_width = footer_bbox[2] - footer_bbox[0]
+    draw.text(((width - footer_width) / 2, height - 100), footer_text, fill='#667eea', font=label_font)
+    
+    return img
 
 def create_wrapped_report(filtered_df, raw_df, start_date, end_date):
     """Create 2025 Wrapped-style visualizations"""
@@ -490,13 +634,40 @@ def main():
         # Download option
         st.sidebar.markdown("---")
         st.sidebar.markdown("### 💾 Export Data")
-        csv = st.session_state.filtered_df.to_csv(index=False)
-        st.sidebar.download_button(
-            label="📥 Download CSV",
-            data=csv,
-            file_name=f"ign_wrapped_{datetime.now().strftime('%Y%m%d')}.csv",
-            mime="text/csv"
-        )
+        
+        col1, col2 = st.sidebar.columns(2)
+        
+        with col1:
+            csv = st.session_state.filtered_df.to_csv(index=False)
+            st.download_button(
+                label="📥 CSV",
+                data=csv,
+                file_name=f"ign_wrapped_{datetime.now().strftime('%Y%m%d')}.csv",
+                mime="text/csv",
+                use_container_width=True
+            )
+        
+        with col2:
+            # Generate infographic
+            if st.button("🎨 Image", use_container_width=True):
+                with st.spinner("Creating infographic..."):
+                    img = create_infographic(
+                        st.session_state.filtered_df,
+                        st.session_state.start_date,
+                        st.session_state.end_date
+                    )
+                    
+                    # Convert to bytes
+                    buf = io.BytesIO()
+                    img.save(buf, format='PNG')
+                    byte_im = buf.getvalue()
+                    
+                    st.download_button(
+                        label="📥 Download Infographic",
+                        data=byte_im,
+                        file_name=f"ign_wrapped_{datetime.now().strftime('%Y%m%d')}.png",
+                        mime="image/png"
+                    )
     else:
         st.info("👈 Configure settings and click 'Generate Wrapped Report' to begin!")
 
