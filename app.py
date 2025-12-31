@@ -11,11 +11,62 @@ import time
 import random
 import pytz
 
-st.set_page_config(page_title="IGN Forum Analyzer", layout="wide")
+st.set_page_config(page_title="IGN Forum 2025 Wrapped", layout="wide", initial_sidebar_state="expanded")
 
-if st.sidebar.button('clear all things'):
+# Custom CSS for Wrapped-style design
+st.markdown("""
+<style>
+    .wrapped-title {
+        font-size: 4rem;
+        font-weight: 900;
+        text-align: center;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        margin-bottom: 1rem;
+    }
+    .wrapped-subtitle {
+        font-size: 1.5rem;
+        text-align: center;
+        color: #666;
+        margin-bottom: 3rem;
+    }
+    .stat-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        padding: 2rem;
+        border-radius: 15px;
+        text-align: center;
+        color: white;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+    }
+    .stat-number {
+        font-size: 3rem;
+        font-weight: 900;
+        margin: 0;
+    }
+    .stat-label {
+        font-size: 1.2rem;
+        opacity: 0.9;
+        margin-top: 0.5rem;
+    }
+    .section-header {
+        font-size: 2.5rem;
+        font-weight: 800;
+        margin: 3rem 0 1.5rem 0;
+        text-align: center;
+    }
+    .emoji-large {
+        font-size: 4rem;
+        text-align: center;
+        margin: 1rem 0;
+    }
+</style>
+""", unsafe_allow_html=True)
+
+if st.sidebar.button('🔄 Clear Cache'):
     st.cache_data.clear()
     st.cache_resource.clear()
+    st.rerun()
     
 class IGNForumAnalyzer:
     def __init__(self, base_url="https://www.ignboards.com/forums/the-vestibule.5296/"):
@@ -55,7 +106,7 @@ class IGNForumAnalyzer:
     def fetch_page(self, page_num=1):
         """Fetch a single page of forum posts"""
         try:
-            time.sleep(random.uniform(0.5, 1.0))  # Simple rate limiting
+            time.sleep(random.uniform(0.5, 1.0))
             url = f"{self.base_url}page-{page_num}"
             response = requests.get(url, headers=self.headers)
             response.raise_for_status()
@@ -108,7 +159,7 @@ class IGNForumAnalyzer:
 
     def scrape_pages(self, num_pages):
         """Scrape specified number of pages"""
-        self.posts_data = []  # Reset data
+        self.posts_data = []
         
         progress_bar = st.progress(0)
         status_text = st.empty()
@@ -134,58 +185,221 @@ def filter_by_date(df, start_date, end_date):
     if df.empty:
         return df
     
-    # Convert timestamps to dates for comparison
     df['date'] = df['timestamp'].dt.date
-    
-    # Filter for threads within the date range (inclusive)
     filtered_df = df[(df['date'] >= start_date) & (df['date'] <= end_date)].copy()
     
     return filtered_df
 
-def create_visualizations(filtered_df, raw_df):
-    """Create all visualizations using filtered data"""
-    # Raw data summary at the top
-    st.header("📊 Raw Data Summary")
-    if not raw_df.empty:
-        raw_min_date = raw_df['timestamp'].min().strftime('%Y-%m-%d %H:%M')
-        raw_max_date = raw_df['timestamp'].max().strftime('%Y-%m-%d %H:%M')
-        st.caption(f"Scraped {len(raw_df)} total threads from {raw_min_date} to {raw_max_date}")
-    else:
-        st.caption("No raw data available")
+def create_wrapped_report(filtered_df, raw_df, start_date, end_date):
+    """Create 2025 Wrapped-style visualizations"""
     
-    st.divider()
-    
-    # Check if filtered data exists
     if filtered_df.empty:
-        st.warning("No threads found for the selected date filter")
+        st.warning("No threads found for the selected date range")
         return
     
-    st.header("📈 Filtered Data Analysis")
+    # Header
+    st.markdown('<div class="wrapped-title">🎮 2025 WRAPPED</div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="wrapped-subtitle">IGN Forum: The Vestibule<br>{start_date.strftime("%B %d")} - {end_date.strftime("%B %d, %Y")}</div>', unsafe_allow_html=True)
     
-    col1, col2 = st.columns(2)
+    st.markdown("---")
+    
+    # Hero Stats
+    st.markdown('<div class="section-header">📊 By The Numbers</div>', unsafe_allow_html=True)
+    
+    col1, col2, col3, col4 = st.columns(4)
     
     with col1:
-        st.subheader("📊 Dataset Overview")
-        st.metric("Total Threads", len(filtered_df))
-        st.metric("Unique Authors", filtered_df['author'].nunique())
-        st.metric("Total Replies", int(filtered_df['replies'].sum()))
-        st.metric("Total Views", int(filtered_df['views'].sum()))
+        st.markdown(f"""
+        <div class="stat-card">
+            <div class="emoji-large">🧵</div>
+            <div class="stat-number">{len(filtered_df):,}</div>
+            <div class="stat-label">Threads Created</div>
+        </div>
+        """, unsafe_allow_html=True)
     
     with col2:
-        st.subheader("📅 Filtered Date Range")
-        if not filtered_df.empty:
-            min_date = filtered_df['timestamp'].min().strftime('%Y-%m-%d %H:%M')
-            max_date = filtered_df['timestamp'].max().strftime('%Y-%m-%d %H:%M')
-            st.write(f"From: {min_date}")
-            st.write(f"To: {max_date}")
+        st.markdown(f"""
+        <div class="stat-card">
+            <div class="emoji-large">💬</div>
+            <div class="stat-number">{int(filtered_df['replies'].sum()):,}</div>
+            <div class="stat-label">Total Replies</div>
+        </div>
+        """, unsafe_allow_html=True)
     
-    # Threads by hour visualization
-    st.subheader("🕐 Threads Created by Hour")
+    with col3:
+        st.markdown(f"""
+        <div class="stat-card">
+            <div class="emoji-large">👀</div>
+            <div class="stat-number">{int(filtered_df['views'].sum()):,}</div>
+            <div class="stat-label">Total Views</div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col4:
+        st.markdown(f"""
+        <div class="stat-card">
+            <div class="emoji-large">👥</div>
+            <div class="stat-number">{filtered_df['author'].nunique():,}</div>
+            <div class="stat-label">Active Authors</div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    st.markdown("<br><br>", unsafe_allow_html=True)
+    
+    # Top 10 Most Viewed Threads
+    st.markdown('<div class="section-header">🔥 Most Viewed Threads</div>', unsafe_allow_html=True)
+    top_views = filtered_df.nlargest(10, 'views')[['title', 'author', 'views', 'replies']].reset_index(drop=True)
+    top_views.index = top_views.index + 1
+    
+    fig_top_views = go.Figure(data=[go.Table(
+        header=dict(values=['<b>Rank</b>', '<b>Thread</b>', '<b>Author</b>', '<b>Views</b>', '<b>Replies</b>'],
+                    fill_color='#667eea',
+                    font=dict(color='white', size=14),
+                    align='left'),
+        cells=dict(values=[top_views.index, top_views['title'], top_views['author'], 
+                          top_views['views'].apply(lambda x: f"{int(x):,}"),
+                          top_views['replies'].apply(lambda x: f"{int(x):,}")],
+                  fill_color='lavender',
+                  font=dict(size=12),
+                  align='left',
+                  height=30))
+    ])
+    fig_top_views.update_layout(height=400, margin=dict(l=0, r=0, t=0, b=0))
+    st.plotly_chart(fig_top_views, use_container_width=True)
+    
+    st.markdown("<br>", unsafe_allow_html=True)
+    
+    # Top 10 Most Replied Threads
+    st.markdown('<div class="section-header">💬 Most Discussed Threads</div>', unsafe_allow_html=True)
+    top_replies = filtered_df.nlargest(10, 'replies')[['title', 'author', 'replies', 'views']].reset_index(drop=True)
+    top_replies.index = top_replies.index + 1
+    
+    fig_top_replies = go.Figure(data=[go.Table(
+        header=dict(values=['<b>Rank</b>', '<b>Thread</b>', '<b>Author</b>', '<b>Replies</b>', '<b>Views</b>'],
+                    fill_color='#764ba2',
+                    font=dict(color='white', size=14),
+                    align='left'),
+        cells=dict(values=[top_replies.index, top_replies['title'], top_replies['author'],
+                          top_replies['replies'].apply(lambda x: f"{int(x):,}"),
+                          top_replies['views'].apply(lambda x: f"{int(x):,}")],
+                  fill_color='#f0e6ff',
+                  font=dict(size=12),
+                  align='left',
+                  height=30))
+    ])
+    fig_top_replies.update_layout(height=400, margin=dict(l=0, r=0, t=0, b=0))
+    st.plotly_chart(fig_top_replies, use_container_width=True)
+    
+    st.markdown("<br>", unsafe_allow_html=True)
+    
+    # Top Authors Section
+    st.markdown('<div class="section-header">👑 Top Contributors</div>', unsafe_allow_html=True)
+    
+    # Top 10 Authors by Thread Count
+    st.markdown("### 🏆 Most Prolific Thread Creators")
+    author_threads = filtered_df.groupby('author').size().reset_index(name='thread_count')
+    author_threads = author_threads.sort_values('thread_count', ascending=False).head(10)
+    
+    fig_thread_count = px.bar(
+        author_threads,
+        x='thread_count',
+        y='author',
+        orientation='h',
+        title="",
+        labels={'thread_count': 'Threads Created', 'author': ''},
+        color='thread_count',
+        color_continuous_scale='Purples'
+    )
+    fig_thread_count.update_layout(
+        showlegend=False,
+        height=400,
+        yaxis={'categoryorder': 'total ascending'},
+        margin=dict(l=0, r=0, t=20, b=0)
+    )
+    st.plotly_chart(fig_thread_count, use_container_width=True)
+    
+    st.markdown("<br>", unsafe_allow_html=True)
+    
+    # Top 10 Authors by Total Views
+    st.markdown("### 👀 Most Viewed Thread Creators")
+    author_views = filtered_df.groupby('author')['views'].sum().reset_index()
+    author_views = author_views.sort_values('views', ascending=False).head(10)
+    
+    fig_author_views = px.bar(
+        author_views,
+        x='views',
+        y='author',
+        orientation='h',
+        title="",
+        labels={'views': 'Total Views', 'author': ''},
+        color='views',
+        color_continuous_scale='Blues'
+    )
+    fig_author_views.update_layout(
+        showlegend=False,
+        height=400,
+        yaxis={'categoryorder': 'total ascending'},
+        margin=dict(l=0, r=0, t=20, b=0)
+    )
+    st.plotly_chart(fig_author_views, use_container_width=True)
+    
+    st.markdown("<br>", unsafe_allow_html=True)
+    
+    # Top 10 Authors by Total Replies
+    st.markdown("### 💬 Most Discussion-Generating Authors")
+    author_replies = filtered_df.groupby('author')['replies'].sum().reset_index()
+    author_replies = author_replies.sort_values('replies', ascending=False).head(10)
+    
+    fig_author_replies = px.bar(
+        author_replies,
+        x='replies',
+        y='author',
+        orientation='h',
+        title="",
+        labels={'replies': 'Total Replies', 'author': ''},
+        color='replies',
+        color_continuous_scale='Reds'
+    )
+    fig_author_replies.update_layout(
+        showlegend=False,
+        height=400,
+        yaxis={'categoryorder': 'total ascending'},
+        margin=dict(l=0, r=0, t=20, b=0)
+    )
+    st.plotly_chart(fig_author_replies, use_container_width=True)
+    
+    st.markdown("<br>", unsafe_allow_html=True)
+    
+    # Activity Timeline
+    st.markdown('<div class="section-header">📅 Activity Timeline</div>', unsafe_allow_html=True)
+    
+    daily_activity = filtered_df.groupby(filtered_df['timestamp'].dt.date).size().reset_index()
+    daily_activity.columns = ['date', 'threads']
+    
+    fig_timeline = px.area(
+        daily_activity,
+        x='date',
+        y='threads',
+        title="",
+        labels={'date': 'Date', 'threads': 'Threads Created'},
+        color_discrete_sequence=['#667eea']
+    )
+    fig_timeline.update_layout(
+        height=350,
+        margin=dict(l=0, r=0, t=20, b=0),
+        hovermode='x unified'
+    )
+    st.plotly_chart(fig_timeline, use_container_width=True)
+    
+    st.markdown("<br>", unsafe_allow_html=True)
+    
+    # Hour of Day Activity
+    st.markdown('<div class="section-header">🕐 Peak Activity Hours</div>', unsafe_allow_html=True)
+    
     filtered_df['hour'] = filtered_df['timestamp'].dt.hour
     hourly_counts = filtered_df.groupby('hour').size().reset_index()
     hourly_counts.columns = ['hour', 'thread_count']
     
-    # Ensure all 24 hours are represented
     all_hours = pd.DataFrame({'hour': range(24)})
     hourly_counts = all_hours.merge(hourly_counts, on='hour', how='left').fillna(0)
     
@@ -193,161 +407,98 @@ def create_visualizations(filtered_df, raw_df):
         hourly_counts,
         x='hour',
         y='thread_count',
-        title="Number of Threads Created by Hour of Day",
-        labels={'hour': 'Hour of Day (UTC)', 'thread_count': 'Number of Threads'}
+        title="",
+        labels={'hour': 'Hour of Day (UTC)', 'thread_count': 'Threads Created'},
+        color='thread_count',
+        color_continuous_scale='Viridis'
     )
     fig_hourly.update_xaxes(tickmode='linear', tick0=0, dtick=1)
+    fig_hourly.update_layout(
+        showlegend=False,
+        height=350,
+        margin=dict(l=0, r=0, t=20, b=0)
+    )
     st.plotly_chart(fig_hourly, use_container_width=True)
     
-    # Top threads by replies table
-    st.subheader("🔥 Top Threads by Replies")
-    top_threads = filtered_df.nlargest(20, 'replies')[['title', 'author', 'replies', 'views', 'timestamp']]
-    top_threads['timestamp'] = top_threads['timestamp'].dt.strftime('%Y-%m-%d %H:%M')
-    st.dataframe(top_threads, use_container_width=True)
+    st.markdown("<br><br>", unsafe_allow_html=True)
     
-    # Authors with most total replies on their threads
-    st.subheader("👑 Authors by Total Replies on Their Threads")
-    author_replies = filtered_df.groupby('author')['replies'].sum().reset_index()
-    author_replies = author_replies.sort_values('replies', ascending=False).head(15)
-    
-    if not author_replies.empty and author_replies['replies'].sum() > 0:
-        fig_replies = px.bar(
-            author_replies, 
-            x='author', 
-            y='replies',
-            title="Authors with Most Total Replies on Their Threads",
-            labels={'author': 'Author', 'replies': 'Total Replies'}
-        )
-        fig_replies.update_xaxes(tickangle=45)
-        st.plotly_chart(fig_replies, use_container_width=True)
-    else:
-        st.info("No reply data available for the filtered date range")
-    
-    # Authors with most total views on their threads
-    st.subheader("👀 Authors by Total Views on Their Threads")
-    author_views = filtered_df.groupby('author')['views'].sum().reset_index()
-    author_views = author_views.sort_values('views', ascending=False).head(15)
-    
-    if not author_views.empty and author_views['views'].sum() > 0:
-        fig_views = px.bar(
-            author_views, 
-            x='author', 
-            y='views',
-            title="Authors with Most Total Views on Their Threads",
-            labels={'author': 'Author', 'views': 'Total Views'}
-        )
-        fig_views.update_xaxes(tickangle=45)
-        st.plotly_chart(fig_views, use_container_width=True)
-    else:
-        st.info("No view data available for the filtered date range")
+    # Footer
+    st.markdown("---")
+    st.markdown('<div style="text-align: center; color: #666; font-size: 0.9rem;">Thank you for making The Vestibule vibrant in 2025! 🎮</div>', unsafe_allow_html=True)
 
 def main():
-    st.title("🎮 IGN Forum Analyzer")
-    st.write("Analyze recent activity on IGN's The Vestibule forum")
-    
     # Sidebar controls
-    st.sidebar.header("⚙️ Settings")
+    st.sidebar.title("⚙️ Settings")
     
-    # Page limit input
     num_pages = st.sidebar.number_input(
-        "Number of pages to scrape", 
+        "Pages to scrape", 
         min_value=1, 
         max_value=2000, 
-        value=5,
-        help="Number of forum pages to scrape (more pages = longer scraping time)"
+        value=10,
+        help="More pages = more complete data"
     )
     
     end_date_default = datetime.now().date() - timedelta(days=1)
-    start_date_default = end_date_default - timedelta(days=6)
+    start_date_default = end_date_default - timedelta(days=29)
     
-    # Single date range input widget
     date_range = st.sidebar.date_input(
-        "Show threads created between:",
+        "Date range:",
         value=(start_date_default, end_date_default),
-        help="Filter threads to show only those created within this date range"
+        help="Select date range for the Wrapped report"
     )
     
-    # Extract start and end dates from the range
     if len(date_range) == 2:
         start_date, end_date = date_range
     else:
-        # Handle case where user has only selected one date
         start_date = date_range[0] if date_range else start_date_default
         end_date = start_date
     
-
+    if st.sidebar.button("🚀 Generate Wrapped Report", type="primary"):
+        st.info(f"Scraping {num_pages} pages...")
         
-    # Scrape button
-    if st.sidebar.button("🚀 Start Scraping", type="primary"):
-        st.info(f"Scraping {num_pages} pages from IGN Forum...")
-        
-        # Scrape data
-        with st.spinner("Scraping forum data..."):
+        with st.spinner("Collecting forum data..."):
             raw_df = scrape_forum_data(num_pages)
         
         if not raw_df.empty:
-            st.success(f"Successfully scraped {len(raw_df)} threads!")
+            st.success(f"Scraped {len(raw_df)} threads!")
             
-            # Filter by date
-            filtered_df = filter_by_date(raw_df, start_date,end_date)
+            filtered_df = filter_by_date(raw_df, start_date, end_date)
             
             if not filtered_df.empty:
-                st.success(f"Found {len(filtered_df)} threads between {start_date} and {end_date}")
-                
-                # Store in session state
                 st.session_state.filtered_df = filtered_df
                 st.session_state.raw_df = raw_df
-                
+                st.session_state.start_date = start_date
+                st.session_state.end_date = end_date
             else:
-                st.warning(f"No threads found on or after {end_date}. Showing all scraped data instead.")
+                st.warning(f"No threads found in selected range. Using all data.")
                 st.session_state.filtered_df = raw_df
                 st.session_state.raw_df = raw_df
+                st.session_state.start_date = start_date
+                st.session_state.end_date = end_date
         else:
-            st.error("No data was scraped. Please try again.")
+            st.error("Failed to scrape data. Please try again.")
     
-    # Display results if data exists
-    if 'filtered_df' in st.session_state and not st.session_state.raw_df.empty:
-        # Show raw data summary first
-        create_visualizations(st.session_state.filtered_df, st.session_state.raw_df)
+    # Display wrapped report
+    if 'filtered_df' in st.session_state:
+        create_wrapped_report(
+            st.session_state.filtered_df, 
+            st.session_state.raw_df,
+            st.session_state.start_date,
+            st.session_state.end_date
+        )
         
         # Download option
-        st.subheader("💾 Download Data")
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            if st.button("Download Filtered Data as CSV"):
-                csv = st.session_state.filtered_df.to_csv(index=False)
-                st.download_button(
-                    label="📥 Download Filtered CSV",
-                    data=csv,
-                    file_name=f"ign_forum_filtered_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
-                    mime="text/csv"
-                )
-        
-        with col2:
-            if st.button("Download All Scraped Data as CSV"):
-                csv = st.session_state.raw_df.to_csv(index=False)
-                st.download_button(
-                    label="📥 Download All Data CSV",
-                    data=csv,
-                    file_name=f"ign_forum_all_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
-                    mime="text/csv"
-                )
-    
-    # Instructions
-    if 'filtered_df' not in st.session_state:
-        st.info("👈 Use the sidebar to configure settings and start scraping!")
-        
-        st.subheader("ℹ️ How it works:")
-        st.write("""
-        1. **Set the number of pages** to scrape (default: 5)
-        2. **Set the date filter** to show threads created on or after a specific date
-        3. **Click 'Start Scraping'** to begin collecting data
-        4. **View the results** including top threads, author statistics, and visualizations
-        5. **Download the data** as CSV if needed
-        
-        The app will scrape the most recent pages from IGN's The Vestibule forum and filter the results to show only threads created on or after your specified date.
-        """)
+        st.sidebar.markdown("---")
+        st.sidebar.markdown("### 💾 Export Data")
+        csv = st.session_state.filtered_df.to_csv(index=False)
+        st.sidebar.download_button(
+            label="📥 Download CSV",
+            data=csv,
+            file_name=f"ign_wrapped_{datetime.now().strftime('%Y%m%d')}.csv",
+            mime="text/csv"
+        )
+    else:
+        st.info("👈 Configure settings and click 'Generate Wrapped Report' to begin!")
 
 if __name__ == "__main__":
     main()
