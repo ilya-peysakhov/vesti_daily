@@ -435,6 +435,40 @@ def create_wrapped_report(filtered_df, raw_df, start_date, end_date):
     st.plotly_chart(fig_top_replies, use_container_width=True)
     
     st.markdown("<br>", unsafe_allow_html=True)
+    # --- INSERT THIS SECTION ---
+    st.markdown("<br>", unsafe_allow_html=True)
+    
+    # Top 10 Authors by Average Replies per Thread
+    st.markdown("### 📈 Most Engaging Authors (Avg. Replies/Thread)")
+    
+    # We group by author and calculate both mean and count
+    author_engagement = filtered_df.groupby('author')['replies'].agg(['mean', 'count']).reset_index()
+    
+    # Optional: Filter for authors who have posted at least 3 threads to ensure quality data
+    min_threads = 3
+    top_avg_replies = author_engagement[author_engagement['count'] >= min_threads].sort_values('mean', ascending=False).head(10)
+    
+    if not top_avg_replies.empty:
+        fig_avg_replies = px.bar(
+            top_avg_replies,
+            x='mean',
+            y='author',
+            orientation='h',
+            title=f"Min. {min_threads} threads posted",
+            labels={'mean': 'Average Replies per Thread', 'author': ''},
+            color='mean',
+            color_continuous_scale='Sunset'
+        )
+        fig_avg_replies.update_layout(
+            showlegend=False,
+            height=400,
+            yaxis={'categoryorder': 'total ascending'},
+            margin=dict(l=0, r=0, t=30, b=0)
+        )
+        st.plotly_chart(fig_avg_replies, use_container_width=True)
+    else:
+        st.info("Not enough data to calculate average engagement (requires authors with multiple threads).")
+    # --- END OF INSERT ---
     
     # Top Authors Section
     st.markdown('<div class="section-header">👑 Top Contributors</div>', unsafe_allow_html=True)
